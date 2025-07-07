@@ -1,0 +1,180 @@
+Prompt for Developing a Forex Trading Assistant Application
+Role: You are an expert software architect, financial technology specialist, and product manager with extensive experience in building secure, user-friendly, and data-driven web applications for forex trading. Your goal is to design and develop a comprehensive forex trading assistant web application tailored to the user's requirements, without relying on real-time forex price APIs.
+Objective: Create a web-based forex trading assistant application that helps the user track their trades, manage account settings, generate moderate trading plans, and provide actionable performance analysis to improve profitability. The application must use static dollar-per-pip values for currency pairs, be intuitive, secure, and optimized for desktop and mobile use.
+Resources:
+
+Use modern web development frameworks such as React for the front end, Node.js/Express for the back end, and MongoDB for data storage.
+Leverage Chart.js or D3.js for interactive trade visualizations.
+Use secure authentication libraries (e.g., JWT) for user account management.
+Refer to financial best practices for risk management and trading plan calculations, such as those outlined in resources like Investopedia or "The Disciplined Trader" by Mark Douglas.
+Use a predefined, static dataset of dollar-per-pip values for major currency pairs (e.g., EUR/USD: $10 per pip for a standard lot, USD/JPY: $8.33 per pip for a standard lot, etc.), sourced once from reliable references (e.g., broker documentation or forex trading guides).
+Ensure compliance with data privacy regulations (e.g., GDPR, CCPA) for user data protection.
+
+Task Requirements:
+
+Trade Tracking:
+
+Allow users to manually input trade details, including:
+Currency pair traded (e.g., EUR/USD).
+Trade outcome (win/loss).
+Lot size used.
+Entry and exit prices.
+Stop-loss and take-profit levels (in pips).
+Trade date and time.
+Additional notes (optional).
+
+
+Store trade history securely in a database, accessible for review and analysis.
+Provide a dashboard to view all trades with filters (e.g., by date, pair, outcome).
+
+
+Account Tracker Creation:
+
+Enable users to create multiple account trackers, each with:
+Starting capital (e.g., $10,000).
+Maximum permitted daily loss (as a percentage of starting capital, e.g., 2%).
+Maximum permitted overall loss (as a percentage of starting capital, e.g., 10%).
+Profit target (as a percentage of starting capital, e.g., 20%).
+
+
+Validate inputs to ensure realistic and positive values.
+Allow users to name and save multiple account trackers for different trading strategies.
+
+
+Trading Plan Generation:
+
+For each account tracker, generate a moderate (non-aggressive) trading plan to achieve the profit target while respecting the maximum daily and overall loss limits.
+The trading plan should include:
+Recommended lot size per trade, calculated based on risk management principles (e.g., risking 1-2% of capital per trade).
+Number of open positions allowed at a time (e.g., 1-3 positions to avoid overexposure).
+Stop-loss pips (based on typical volatility for the currency pair, using predefined reference values).
+Target pips for take-profit (aligned with a moderate risk-reward ratio, e.g., 1:2).
+Suggested trading frequency (e.g., 2-5 trades per week).
+
+
+Use a static dataset of dollar-per-pip values for major currency pairs to calculate trade values and risk (e.g., EUR/USD: $10 per pip for a standard lot, GBP/USD: $10 per pip, USD/JPY: $8.33 per pip, etc.).
+After each trade (win or loss), automatically recalculate and update the trading plan to reflect the current account balance, ensuring the profit target remains achievable within risk constraints.
+
+
+Performance Analysis and Optimization:
+
+Provide a detailed analysis of trade performance, including:
+Win/loss ratio.
+Average profit/loss per trade (calculated using dollar-per-pip values).
+Performance by currency pair.
+Risk-reward ratio trends.
+Drawdown analysis (daily and overall).
+
+
+Generate visualizations (e.g., charts, graphs) to display performance metrics over time.
+Offer actionable insights to improve trading, such as:
+Identifying over-risked trades.
+Suggesting adjustments to lot sizes or stop-loss levels based on performance trends.
+Recommending focus on high-performing currency pairs.
+
+
+Include a feature to compare performance across multiple account trackers.
+
+
+User Experience and Technical Requirements:
+
+Design an intuitive UI/UX with:
+A clean dashboard for trade entry, account tracker setup, and performance analysis.
+Interactive charts for visualizing trade history and performance metrics.
+Mobile-optimized design using responsive frameworks (e.g., Tailwind CSS).
+
+
+Ensure real-time updates for trade entries and plan recalculations using WebSocket or similar technology.
+Implement secure user authentication and data encryption to protect sensitive financial data.
+Optimize for performance to handle calculations efficiently without external API dependencies.
+
+
+
+Constraints:
+
+The application must be web-based, not a mobile app, but should be mobile-optimized.
+Avoid aggressive trading strategies; prioritize moderate risk management (e.g., 1-2% risk per trade, 1:2 or better risk-reward ratio).
+Do not require the user to define complex trading strategies; the app should generate plans automatically based on input parameters.
+Use a static dollar-per-pip dataset instead of real-time forex price APIs to calculate trade values and risk.
+Avoid external file dependencies (e.g., local file I/O) to ensure compatibility with web-based deployment.
+
+Deliverables:
+
+A detailed Product Requirements Document (PRD) in markdown format, outlining the application’s features, technical architecture, and user flows.
+A UI/UX design specification with wireframes and design principles for the dashboard, trade entry, and performance analysis sections.
+A front-end implementation guide using React, Chart.js, and WebSocket for real-time updates, including code snippets for key components.
+A back-end implementation guide using Node.js/Express and MongoDB, detailing trade storage, plan calculations, and static dollar-per-pip data integration.
+A sample trading plan calculation algorithm (in pseudocode or JavaScript) that demonstrates lot size, stop-loss, and target pip determination using static dollar-per-pip values.
+A performance analysis module (in pseudocode or JavaScript) that calculates key metrics and generates improvement recommendations.
+
+Execution Steps:
+
+Research and Planning:
+Review forex trading best practices for risk management and plan generation.
+Compile a static dataset of dollar-per-pip values for major currency pairs from reliable sources (e.g., broker documentation).
+Outline the technical architecture, including front-end, back-end, and database components.
+
+
+PRD Development:
+Draft a comprehensive PRD with clear sections for features, user flows, and technical requirements.
+Validate the PRD against user requirements and industry standards.
+
+
+UI/UX Design:
+Create wireframes for the dashboard, trade entry form, account tracker setup, and performance analysis pages.
+Define design principles for usability and responsiveness.
+
+
+Front-End Development:
+Implement the UI using React and Tailwind CSS, integrating Chart.js for visualizations.
+Set up WebSocket for real-time trade updates and plan recalculations.
+
+
+Back-End Development:
+Build the back end with Node.js/Express and MongoDB for trade and account data storage.
+Integrate the static dollar-per-pip dataset for trade value and risk calculations.
+
+
+Trading Plan Algorithm:
+Develop an algorithm to calculate lot sizes, stop-loss, and target pips based on user inputs, static dollar-per-pip values, and risk management principles.
+Ensure the algorithm updates dynamically after each trade.
+
+
+Performance Analysis Module:
+Create a module to calculate key metrics (win/loss ratio, drawdown, etc.) using dollar-per-pip values.
+Generate actionable insights based on performance trends.
+
+
+Testing and Validation:
+Test the application for functionality, performance, and security.
+Validate trading plan calculations against realistic scenarios using the static dataset.
+Conduct usability testing to ensure an intuitive user experience.
+
+
+Documentation:
+Provide detailed guides for front-end, back-end, and algorithm implementation.
+Include user documentation for operating the application.
+
+
+
+Output Format:
+
+Deliver all documents in markdown format for clarity and portability.
+Include code snippets in JavaScript for front-end, back-end, and algorithm components.
+Provide wireframes as text-based descriptions or ASCII art in markdown.
+Ensure all deliverables are modular and reusable for iterative development.
+
+Success Criteria:
+
+The application allows seamless trade tracking with accurate data storage and retrieval.
+Account trackers are easy to set up and generate moderate, achievable trading plans using static dollar-per-pip values.
+Trading plans dynamically update after each trade, respecting risk constraints.
+Performance analysis provides clear, actionable insights with visualizations.
+The application is intuitive, secure, and responsive across devices.
+
+Additional Notes:
+
+Prioritize simplicity in the UI to cater to users with varying levels of trading experience.
+Ensure calculations (e.g., lot sizes, risk percentages) are transparent and explained in user documentation.
+Incorporate error handling for invalid inputs (e.g., negative capital, unrealistic loss limits).
+Use Agile methodology with 2-week sprints for development, starting with trade tracking and account setup features.
