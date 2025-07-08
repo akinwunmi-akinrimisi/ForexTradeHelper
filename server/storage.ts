@@ -53,190 +53,144 @@ export interface IStorage {
   updateDailyTradePlan(id: number, updates: Partial<DailyTradePlan>): Promise<DailyTradePlan | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private accountTrackers: Map<number, AccountTracker>;
-  private trades: Map<number, Trade>;
-  private tradingPlans: Map<number, TradingPlan>;
-  private growthPlans: Map<number, GrowthPlan>;
-  private dailyTradePlans: Map<number, DailyTradePlan>;
-  private currentId: number;
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
-  constructor() {
-    this.users = new Map();
-    this.accountTrackers = new Map();
-    this.trades = new Map();
-    this.tradingPlans = new Map();
-    this.growthPlans = new Map();
-    this.dailyTradePlans = new Map();
-    this.currentId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async getAccountTrackers(userId: number): Promise<AccountTracker[]> {
-    return Array.from(this.accountTrackers.values()).filter(
-      tracker => tracker.userId === userId
-    );
+    return await db.select().from(accountTrackers).where(eq(accountTrackers.userId, userId));
   }
 
   async getAccountTracker(id: number): Promise<AccountTracker | undefined> {
-    return this.accountTrackers.get(id);
+    const [tracker] = await db.select().from(accountTrackers).where(eq(accountTrackers.id, id));
+    return tracker || undefined;
   }
 
   async createAccountTracker(data: InsertAccountTracker & { userId: number }): Promise<AccountTracker> {
-    const id = this.currentId++;
-    const accountTracker: AccountTracker = {
-      ...data,
-      id,
-      currentBalance: data.startingCapital,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.accountTrackers.set(id, accountTracker);
-    return accountTracker;
+    const [tracker] = await db
+      .insert(accountTrackers)
+      .values(data)
+      .returning();
+    return tracker;
   }
 
   async updateAccountTracker(id: number, updates: Partial<AccountTracker>): Promise<AccountTracker | undefined> {
-    const existing = this.accountTrackers.get(id);
-    if (!existing) return undefined;
-    
-    const updated = { ...existing, ...updates };
-    this.accountTrackers.set(id, updated);
-    return updated;
+    const [updated] = await db
+      .update(accountTrackers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(accountTrackers.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getTrades(userId: number): Promise<Trade[]> {
-    return Array.from(this.trades.values()).filter(trade => trade.userId === userId);
+    return await db.select().from(trades).where(eq(trades.userId, userId));
   }
 
   async getTradesByAccount(accountTrackerId: number): Promise<Trade[]> {
-    return Array.from(this.trades.values()).filter(
-      trade => trade.accountTrackerId === accountTrackerId
-    );
+    return await db.select().from(trades).where(eq(trades.accountTrackerId, accountTrackerId));
   }
 
   async createTrade(data: InsertTrade & { userId: number; profitLoss: number }): Promise<Trade> {
-    const id = this.currentId++;
-    const trade: Trade = {
-      ...data,
-      id,
-      createdAt: new Date(),
-    };
-    this.trades.set(id, trade);
+    const [trade] = await db
+      .insert(trades)
+      .values(data)
+      .returning();
     return trade;
   }
 
   async getTradingPlan(accountTrackerId: number): Promise<TradingPlan | undefined> {
-    return Array.from(this.tradingPlans.values()).find(
-      plan => plan.accountTrackerId === accountTrackerId
-    );
+    const [plan] = await db.select().from(tradingPlans).where(eq(tradingPlans.accountTrackerId, accountTrackerId));
+    return plan || undefined;
   }
 
   async createTradingPlan(data: InsertTradingPlan): Promise<TradingPlan> {
-    const id = this.currentId++;
-    const plan: TradingPlan = {
-      ...data,
-      id,
-      lastUpdated: new Date(),
-    };
-    this.tradingPlans.set(id, plan);
+    const [plan] = await db
+      .insert(tradingPlans)
+      .values(data)
+      .returning();
     return plan;
   }
 
   async updateTradingPlan(accountTrackerId: number, updates: Partial<TradingPlan>): Promise<TradingPlan | undefined> {
-    const existing = Array.from(this.tradingPlans.values()).find(
-      plan => plan.accountTrackerId === accountTrackerId
-    );
-    if (!existing) return undefined;
-    
-    const updated = { ...existing, ...updates, lastUpdated: new Date() };
-    this.tradingPlans.set(existing.id, updated);
-    return updated;
+    const [updated] = await db
+      .update(tradingPlans)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(tradingPlans.accountTrackerId, accountTrackerId))
+      .returning();
+    return updated || undefined;
   }
 
   async getGrowthPlan(accountTrackerId: number): Promise<GrowthPlan | undefined> {
-    return Array.from(this.growthPlans.values()).find(
-      plan => plan.accountTrackerId === accountTrackerId
-    );
+    const [plan] = await db.select().from(growthPlans).where(eq(growthPlans.accountTrackerId, accountTrackerId));
+    return plan || undefined;
   }
 
   async createGrowthPlan(data: InsertGrowthPlan): Promise<GrowthPlan> {
-    const id = this.currentId++;
-    const plan: GrowthPlan = {
-      ...data,
-      id,
-      currentTrade: 1,
-      dailyLossUsed: 0,
-      totalTradesCompleted: 0,
-      lastTradeDate: null,
-      isCompleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.growthPlans.set(id, plan);
+    const [plan] = await db
+      .insert(growthPlans)
+      .values(data)
+      .returning();
     return plan;
   }
 
   async updateGrowthPlan(accountTrackerId: number, updates: Partial<GrowthPlan>): Promise<GrowthPlan | undefined> {
-    const existing = Array.from(this.growthPlans.values()).find(
-      plan => plan.accountTrackerId === accountTrackerId
-    );
-    if (!existing) return undefined;
-    
-    const updated = { ...existing, ...updates, updatedAt: new Date() };
-    this.growthPlans.set(existing.id, updated);
-    return updated;
+    const [updated] = await db
+      .update(growthPlans)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(growthPlans.accountTrackerId, accountTrackerId))
+      .returning();
+    return updated || undefined;
   }
 
   async getDailyTradePlans(growthPlanId: number): Promise<DailyTradePlan[]> {
-    return Array.from(this.dailyTradePlans.values()).filter(
-      plan => plan.growthPlanId === growthPlanId
-    );
+    return await db.select().from(dailyTradePlans).where(eq(dailyTradePlans.growthPlanId, growthPlanId));
   }
 
   async getDailyTradePlansForDate(growthPlanId: number, date: Date): Promise<DailyTradePlan[]> {
-    const dateStr = date.toDateString();
-    return Array.from(this.dailyTradePlans.values()).filter(
-      plan => plan.growthPlanId === growthPlanId && 
-               plan.tradeDate && new Date(plan.tradeDate).toDateString() === dateStr
-    );
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    return await db.select().from(dailyTradePlans)
+      .where(eq(dailyTradePlans.growthPlanId, growthPlanId));
   }
 
   async createDailyTradePlan(data: InsertDailyTradePlan): Promise<DailyTradePlan> {
-    const id = this.currentId++;
-    const plan: DailyTradePlan = {
-      ...data,
-      id,
-      actualResult: null,
-      isExecuted: false,
-      executedAt: null,
-    };
-    this.dailyTradePlans.set(id, plan);
+    const [plan] = await db
+      .insert(dailyTradePlans)
+      .values(data)
+      .returning();
     return plan;
   }
 
   async updateDailyTradePlan(id: number, updates: Partial<DailyTradePlan>): Promise<DailyTradePlan | undefined> {
-    const existing = this.dailyTradePlans.get(id);
-    if (!existing) return undefined;
-    
-    const updated = { ...existing, ...updates };
-    this.dailyTradePlans.set(id, updated);
-    return updated;
+    const [updated] = await db
+      .update(dailyTradePlans)
+      .set(updates)
+      .where(eq(dailyTradePlans.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

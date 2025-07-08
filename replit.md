@@ -26,11 +26,11 @@ A comprehensive web-based forex trading assistant that helps users track trades,
 - **API Design**: RESTful endpoints with JSON responses
 
 ### Data Storage
-- **Primary Database**: PostgreSQL via Neon serverless
+- **Primary Database**: PostgreSQL via Neon serverless (ACTIVE)
 - **ORM**: Drizzle ORM for type-safe database operations
 - **Schema Management**: Drizzle Kit for migrations
 - **Session Storage**: PostgreSQL with connect-pg-simple
-- **In-Memory Fallback**: MemStorage class for development
+- **Storage Implementation**: DatabaseStorage class using PostgreSQL
 
 ## Key Components
 
@@ -124,3 +124,4 @@ Preferred communication style: Simple, everyday language.
 
 Changelog:
 - July 07, 2025. Initial setup
+- January 08, 2025. Enhanced growth plan system with detailed daily trading plans, risk allocation (50%, 25%, 25%), currency pair selection, adaptive planning based on trade results, and PostgreSQL database integration
