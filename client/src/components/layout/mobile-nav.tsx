@@ -4,14 +4,15 @@ import {
   BarChart3, 
   TrendingUp, 
   Wallet, 
-  PlusCircle
+  PlusCircle,
+  Brain
 } from "lucide-react";
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: BarChart3 },
+  { name: 'AI Insights', href: '/ai-insights', icon: Brain },
   { name: 'Trades', href: '/trades', icon: PlusCircle },
   { name: 'Accounts', href: '/accounts', icon: Wallet },
-  { name: 'Analytics', href: '/performance', icon: TrendingUp },
 ];
 
 export function MobileNav() {

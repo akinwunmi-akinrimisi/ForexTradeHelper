@@ -6,11 +6,13 @@ import {
   Wallet, 
   PlusCircle, 
   ClipboardList,
+  Brain,
   User
 } from "lucide-react";
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: BarChart3 },
+  { name: 'AI Insights', href: '/ai-insights', icon: Brain },
   { name: 'Trade Entry', href: '/trades', icon: PlusCircle },
   { name: 'Account Trackers', href: '/accounts', icon: Wallet },
   { name: 'Performance', href: '/performance', icon: TrendingUp },

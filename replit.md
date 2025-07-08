@@ -2,7 +2,7 @@
 
 ## Overview
 
-A comprehensive web-based forex trading assistant that helps users track trades, manage account settings, generate trading plans, and analyze performance. The application provides a secure, user-friendly interface for forex traders to monitor their trading activity and make data-driven decisions.
+An AI-powered forex trading assistant that provides intelligent growth planning, risk management, and trading recommendations. The system uses advanced AI algorithms to analyze trading patterns, optimize risk allocation, and generate personalized trading plans with a minimum 1:3 risk-to-reward ratio for consistent profitability.
 
 ## System Architecture
 
@@ -57,12 +57,20 @@ A comprehensive web-based forex trading assistant that helps users track trades,
 - Recommended lot sizes and position limits
 - Risk-reward ratio calculations (1:2 default)
 
+### AI Trading Engine
+- **Intelligent Growth Planning**: AI-powered growth plan generation based on target goals and timeline
+- **Smart Risk Management**: Dynamic risk allocation with 1:3 minimum risk-to-reward ratio
+- **Currency Pair Optimization**: Focus on GBPUSD, GBPJPY, EURJPY, EURUSD, USDJPY pairs
+- **Adaptive Planning**: Plans adjust based on actual trading performance and consecutive wins/losses
+- **Daily Trade Limits**: Maximum 3 trades per day with 50%, 25%, 25% risk allocation
+
 ### Performance Analytics
-- Real-time performance metrics
-- Win rate calculations
+- Real-time performance metrics with AI insights
+- Win rate calculations and trend analysis
 - P&L tracking and visualization
 - Currency pair performance analysis
 - Interactive charts and dashboards
+- AI-powered trade recommendations
 
 ## Data Flow
 
@@ -125,3 +133,4 @@ Preferred communication style: Simple, everyday language.
 Changelog:
 - July 07, 2025. Initial setup
 - January 08, 2025. Enhanced growth plan system with detailed daily trading plans, risk allocation (50%, 25%, 25%), currency pair selection, adaptive planning based on trade results, and PostgreSQL database integration
+- January 08, 2025. Integrated AI Trading Engine with intelligent growth planning, smart risk management (1:3 minimum risk-reward), optimal lot size calculations, and personalized trading recommendations for GBPUSD, GBPJPY, EURJPY, EURUSD, USDJPY pairs

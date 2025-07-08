@@ -11,6 +11,7 @@ import Trades from "@/pages/trades";
 import Accounts from "@/pages/accounts";
 import Performance from "@/pages/performance";
 import TradingPlans from "@/pages/trading-plans";
+import AIInsights from "@/pages/ai-insights";
 import NotFound from "@/pages/not-found";
 
 function AppContent() {
@@ -26,6 +27,7 @@ function AppContent() {
           <Route path="/accounts" component={Accounts} />
           <Route path="/performance" component={Performance} />
           <Route path="/trading-plans" component={TradingPlans} />
+          <Route path="/ai-insights" component={AIInsights} />
           <Route component={NotFound} />
         </Switch>
       </main>

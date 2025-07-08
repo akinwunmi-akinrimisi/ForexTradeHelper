@@ -4,15 +4,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertAccountTrackerSchema, insertTradeSchema, insertTradingPlanSchema, insertGrowthPlanSchema, insertDailyTradePlanSchema } from "@shared/schema";
 import { z } from "zod";
+import { AITradingEngine, ENHANCED_DOLLAR_PER_PIP } from "./ai-trading-engine";
 
-// Currency pair pip values for calculations
-const DOLLAR_PER_PIP = {
-  'GBPUSD': 10.00,
-  'GBPJPY': 8.33,
-  'EURJPY': 8.33,
-  'EURUSD': 10.00,
-  'USDJPY': 8.33
-};
+// Use AI engine's enhanced dollar per pip calculations
+const DOLLAR_PER_PIP = ENHANCED_DOLLAR_PER_PIP;
 
 
 
@@ -25,13 +20,18 @@ function calculateProfitLoss(currencyPair: string, lotSize: number, entryPrice: 
 }
 
 function generateTradingPlan(accountTracker: any) {
-  const riskPercentage = 0.02; // 2% risk per trade
+  const riskPercentage = 0.005; // 0.5% risk per trade (conservative)
   const riskAmount = accountTracker.currentBalance * riskPercentage;
   
-  // Conservative plan calculations
-  const stopLossPips = 20;
-  const takeProfitPips = 40; // 1:2 risk-reward ratio
-  const recommendedLotSize = Math.min(0.5, riskAmount / (stopLossPips * 10)); // Conservative lot size
+  // AI-enhanced plan calculations with 1:3 minimum risk-reward
+  const stopLossPips = 30;
+  const takeProfitPips = 90; // 1:3 risk-reward ratio minimum
+  const recommendedLotSize = AITradingEngine.calculateOptimalLotSize(
+    accountTracker.currentBalance,
+    riskPercentage * 100,
+    stopLossPips,
+    'GBPUSD' // Default pair for calculations
+  );
   
   return {
     accountTrackerId: accountTracker.id,
@@ -39,7 +39,7 @@ function generateTradingPlan(accountTracker: any) {
     maxOpenPositions: 3,
     stopLossPips,
     takeProfitPips,
-    suggestedTradesPerWeek: 4,
+    suggestedTradesPerWeek: 15, // 3 trades per day, 5 days per week
     riskPercentage: riskPercentage * 100,
   };
 }
@@ -49,47 +49,49 @@ function generateGrowthPlan(accountTracker: any) {
   const targetAmount = startingCapital * (1 + accountTracker.profitTarget / 100);
   const profitNeeded = targetAmount - accountTracker.currentBalance;
   
-  // Calculate average profit per winning trade (assume 60% win rate)
-  const winRate = 0.6;
-  const avgProfitPerWin = 40; // Average pips profit
-  const avgPipValue = 9; // Average pip value across selected pairs
-  const avgLotSize = 0.1;
-  const avgProfitPerWinningTrade = avgProfitPerWin * avgPipValue * avgLotSize;
+  // Use AI engine for intelligent growth planning
+  const timeframeDays = 30; // Default 30-day growth plan
+  const aiAnalysis = AITradingEngine.generateAIGrowthPlan(
+    accountTracker,
+    targetAmount,
+    timeframeDays,
+    [] // Empty array for new accounts, will be populated with actual trades
+  );
   
-  // Calculate total trades needed
-  const expectedProfitPerTrade = avgProfitPerWinningTrade * winRate - (avgProfitPerWinningTrade * 0.5 * (1 - winRate));
-  const tradesNeeded = Math.ceil(profitNeeded / expectedProfitPerTrade);
-  
-  // Limit to reasonable range (10-20 trades)
-  const targetTrades = Math.min(20, Math.max(10, tradesNeeded));
-  
-  // Calculate days needed (max 3 trades per day)
-  const daysNeeded = Math.ceil(targetTrades / 3);
+  // Calculate target trades based on AI recommendations
+  const targetTrades = Math.min(90, Math.max(30, timeframeDays * 3)); // 3 trades per day max
   
   return {
     accountTrackerId: accountTracker.id,
     targetTrades,
-    dailyRiskLimit: startingCapital * 0.01, // 1% of starting capital
-    remainingDays: daysNeeded,
+    dailyRiskLimit: accountTracker.currentBalance * 0.01, // 1% of current balance
+    remainingDays: timeframeDays,
+    riskPerTrade: aiAnalysis.optimalRiskPerTrade,
+    targetAmount: targetAmount,
   };
 }
 
 function generateDailyTradePlans(growthPlan: any, currentDate: Date) {
-  const pairs = Object.keys(DOLLAR_PER_PIP);
+  const priorityPairs = ['GBPUSD', 'GBPJPY', 'EURJPY', 'EURUSD', 'USDJPY'];
   const dailyPlans = [];
   
   // Risk allocation: 50%, 25%, 25% for trades 1, 2, 3
   const riskAllocations = [0.5, 0.25, 0.25];
   
   for (let tradeNumber = 1; tradeNumber <= 3; tradeNumber++) {
-    const currencyPair = pairs[Math.floor(Math.random() * pairs.length)];
+    const currencyPair = priorityPairs[tradeNumber - 1] || priorityPairs[0];
     const pipValue = DOLLAR_PER_PIP[currencyPair as keyof typeof DOLLAR_PER_PIP];
     const allocatedRisk = growthPlan.dailyRiskLimit * riskAllocations[tradeNumber - 1];
     
-    // Calculate lot size based on risk allocation
-    const stopLossPips = 20;
-    const takeProfitPips = 40;
-    const lotSize = Math.round((allocatedRisk / (stopLossPips * pipValue)) * 100) / 100;
+    // AI-enhanced calculations with 1:3 minimum risk-reward
+    const stopLossPips = 30;
+    const takeProfitPips = 90; // 1:3 risk-reward ratio
+    const lotSize = AITradingEngine.calculateOptimalLotSize(
+      growthPlan.currentBalance || 1000,
+      (allocatedRisk / (growthPlan.currentBalance || 1000)) * 100,
+      stopLossPips,
+      currencyPair
+    );
     const expectedProfit = lotSize * takeProfitPips * pipValue;
     
     dailyPlans.push({
@@ -108,8 +110,17 @@ function generateDailyTradePlans(growthPlan: any, currentDate: Date) {
   return dailyPlans;
 }
 
-function updateGrowthPlanAfterTrade(growthPlan: any, tradeResult: number, isNewDay: boolean) {
+async function updateGrowthPlanAfterTrade(growthPlan: any, tradeResult: number, isNewDay: boolean, allTrades: any[]) {
+  // Use AI engine for intelligent growth plan updates
+  const aiUpdates = AITradingEngine.updateGrowthPlanWithTradeResult(
+    growthPlan,
+    tradeResult,
+    growthPlan.currentBalance + tradeResult,
+    allTrades
+  );
+  
   const updates: any = {
+    ...aiUpdates,
     totalTradesCompleted: growthPlan.totalTradesCompleted + 1,
     lastTradeDate: new Date(),
   };
@@ -225,6 +236,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Trading Recommendations endpoint
+  app.get('/api/ai-recommendations/:accountTrackerId', async (req, res) => {
+    try {
+      const accountTrackerId = parseInt(req.params.accountTrackerId);
+      const accountTracker = await storage.getAccountTracker(accountTrackerId);
+      
+      if (!accountTracker) {
+        return res.status(404).json({ message: 'Account tracker not found' });
+      }
+      
+      const userTrades = await storage.getTradesByAccount(accountTrackerId);
+      const targetAmount = accountTracker.startingCapital * (1 + accountTracker.profitTarget / 100);
+      
+      const aiAnalysis = AITradingEngine.generateAIGrowthPlan(
+        accountTracker,
+        targetAmount,
+        30, // 30-day plan
+        userTrades
+      );
+      
+      res.json(aiAnalysis);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to generate AI recommendations' });
+    }
+  });
+
   app.post('/api/trades', async (req, res) => {
     try {
       const validated = insertTradeSchema.parse(req.body);
@@ -244,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         profitLoss,
       });
       
-      // Update account balance
+      // Update account balance and AI-powered growth plan
       const accountTracker = await storage.getAccountTracker(validated.accountTrackerId);
       if (accountTracker) {
         const newBalance = accountTracker.currentBalance + profitLoss;
@@ -252,7 +289,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentBalance: newBalance,
         });
         
-        // Recalculate trading plan
+        // Update growth plan with AI analysis
+        const growthPlan = await storage.getGrowthPlan(validated.accountTrackerId);
+        if (growthPlan) {
+          const allTrades = await storage.getTradesByAccount(validated.accountTrackerId);
+          const lastTradeDate = growthPlan.lastTradeDate ? new Date(growthPlan.lastTradeDate) : null;
+          const today = new Date();
+          const isNewDay = !lastTradeDate || today.toDateString() !== lastTradeDate.toDateString();
+          
+          const aiUpdates = await updateGrowthPlanAfterTrade(growthPlan, profitLoss, isNewDay, allTrades);
+          await storage.updateGrowthPlan(validated.accountTrackerId, aiUpdates);
+        }
+        
+        // Recalculate trading plan with AI enhancements
         const updatedTracker = await storage.getAccountTracker(validated.accountTrackerId);
         if (updatedTracker) {
           const newPlan = generateTradingPlan(updatedTracker);

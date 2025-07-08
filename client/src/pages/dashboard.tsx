@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PerformanceChart } from "@/components/charts/performance-chart";
+import { AIRecommendations } from "@/components/ai-trading/ai-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +138,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AI Trading Recommendations */}
+      {accountTrackers?.length > 0 && (
+        <AIRecommendations accountTrackerId={accountTrackers[0].id} />
+      )}
 
       {/* Account Trackers Overview */}
       <Card>
