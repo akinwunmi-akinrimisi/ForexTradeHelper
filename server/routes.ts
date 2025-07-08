@@ -2,19 +2,19 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertAccountTrackerSchema, insertTradeSchema, insertTradingPlanSchema } from "@shared/schema";
+import { insertAccountTrackerSchema, insertTradeSchema, insertTradingPlanSchema, insertGrowthPlanSchema, insertDailyTradePlanSchema } from "@shared/schema";
 import { z } from "zod";
 
-// Static dollar-per-pip values for major currency pairs
+// Currency pair pip values for calculations
 const DOLLAR_PER_PIP = {
-  'EUR/USD': 10.00,
-  'GBP/USD': 10.00,
-  'USD/JPY': 8.33,
-  'USD/CHF': 10.00,
-  'AUD/USD': 10.00,
-  'NZD/USD': 10.00,
-  'USD/CAD': 7.50
+  'GBPUSD': 10.00,
+  'GBPJPY': 8.33,
+  'EURJPY': 8.33,
+  'EURUSD': 10.00,
+  'USDJPY': 8.33
 };
+
+
 
 // Trading plan calculation functions
 function calculateProfitLoss(currencyPair: string, lotSize: number, entryPrice: number, exitPrice: number, outcome: string) {
@@ -42,6 +42,97 @@ function generateTradingPlan(accountTracker: any) {
     suggestedTradesPerWeek: 4,
     riskPercentage: riskPercentage * 100,
   };
+}
+
+function generateGrowthPlan(accountTracker: any) {
+  const startingCapital = accountTracker.startingCapital;
+  const targetAmount = startingCapital * (1 + accountTracker.profitTarget / 100);
+  const profitNeeded = targetAmount - accountTracker.currentBalance;
+  
+  // Calculate average profit per winning trade (assume 60% win rate)
+  const winRate = 0.6;
+  const avgProfitPerWin = 40; // Average pips profit
+  const avgPipValue = 9; // Average pip value across selected pairs
+  const avgLotSize = 0.1;
+  const avgProfitPerWinningTrade = avgProfitPerWin * avgPipValue * avgLotSize;
+  
+  // Calculate total trades needed
+  const expectedProfitPerTrade = avgProfitPerWinningTrade * winRate - (avgProfitPerWinningTrade * 0.5 * (1 - winRate));
+  const tradesNeeded = Math.ceil(profitNeeded / expectedProfitPerTrade);
+  
+  // Limit to reasonable range (10-20 trades)
+  const targetTrades = Math.min(20, Math.max(10, tradesNeeded));
+  
+  // Calculate days needed (max 3 trades per day)
+  const daysNeeded = Math.ceil(targetTrades / 3);
+  
+  return {
+    accountTrackerId: accountTracker.id,
+    targetTrades,
+    dailyRiskLimit: startingCapital * 0.01, // 1% of starting capital
+    remainingDays: daysNeeded,
+  };
+}
+
+function generateDailyTradePlans(growthPlan: any, currentDate: Date) {
+  const pairs = Object.keys(DOLLAR_PER_PIP);
+  const dailyPlans = [];
+  
+  // Risk allocation: 50%, 25%, 25% for trades 1, 2, 3
+  const riskAllocations = [0.5, 0.25, 0.25];
+  
+  for (let tradeNumber = 1; tradeNumber <= 3; tradeNumber++) {
+    const currencyPair = pairs[Math.floor(Math.random() * pairs.length)];
+    const pipValue = DOLLAR_PER_PIP[currencyPair as keyof typeof DOLLAR_PER_PIP];
+    const allocatedRisk = growthPlan.dailyRiskLimit * riskAllocations[tradeNumber - 1];
+    
+    // Calculate lot size based on risk allocation
+    const stopLossPips = 20;
+    const takeProfitPips = 40;
+    const lotSize = Math.round((allocatedRisk / (stopLossPips * pipValue)) * 100) / 100;
+    const expectedProfit = lotSize * takeProfitPips * pipValue;
+    
+    dailyPlans.push({
+      growthPlanId: growthPlan.id,
+      currencyPair,
+      tradeNumber,
+      allocatedRisk: riskAllocations[tradeNumber - 1] * 100,
+      lotSize: Math.max(0.01, lotSize),
+      stopLossPips,
+      takeProfitPips,
+      expectedProfit,
+      tradeDate: currentDate,
+    });
+  }
+  
+  return dailyPlans;
+}
+
+function updateGrowthPlanAfterTrade(growthPlan: any, tradeResult: number, isNewDay: boolean) {
+  const updates: any = {
+    totalTradesCompleted: growthPlan.totalTradesCompleted + 1,
+    lastTradeDate: new Date(),
+  };
+  
+  if (isNewDay) {
+    updates.dailyLossUsed = tradeResult < 0 ? Math.abs(tradeResult) : 0;
+    updates.currentTrade = 1;
+  } else {
+    updates.dailyLossUsed = growthPlan.dailyLossUsed + (tradeResult < 0 ? Math.abs(tradeResult) : 0);
+    updates.currentTrade = growthPlan.currentTrade + 1;
+  }
+  
+  // Check if daily loss limit reached
+  if (updates.dailyLossUsed >= growthPlan.dailyRiskLimit) {
+    updates.currentTrade = 4; // Force end of day
+  }
+  
+  // Check if target reached or plan completed
+  if (updates.totalTradesCompleted >= growthPlan.targetTrades) {
+    updates.isCompleted = true;
+  }
+  
+  return updates;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -101,6 +192,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate initial trading plan
       const planData = generateTradingPlan(tracker);
       await storage.createTradingPlan(planData);
+      
+      // Generate growth plan
+      const growthPlanData = generateGrowthPlan(tracker);
+      const growthPlan = await storage.createGrowthPlan(growthPlanData);
+      
+      // Generate initial daily trade plans for today
+      const today = new Date();
+      const dailyPlans = generateDailyTradePlans(growthPlan, today);
+      for (const dailyPlan of dailyPlans) {
+        await storage.createDailyTradePlan(dailyPlan);
+      }
       
       broadcast({ type: 'accountTrackerCreated', data: tracker });
       res.json(tracker);
@@ -224,6 +326,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: 'Failed to fetch performance data' });
+    }
+  });
+
+  // Growth plan routes
+  app.get('/api/growth-plans/:accountTrackerId', async (req, res) => {
+    try {
+      const accountTrackerId = parseInt(req.params.accountTrackerId);
+      const growthPlan = await storage.getGrowthPlan(accountTrackerId);
+      if (!growthPlan) {
+        return res.status(404).json({ message: 'Growth plan not found' });
+      }
+      res.json(growthPlan);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch growth plan' });
+    }
+  });
+
+  // Daily trade plans routes
+  app.get('/api/daily-trade-plans/:growthPlanId', async (req, res) => {
+    try {
+      const growthPlanId = parseInt(req.params.growthPlanId);
+      const plans = await storage.getDailyTradePlans(growthPlanId);
+      res.json(plans);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch daily trade plans' });
+    }
+  });
+
+  app.get('/api/daily-trade-plans/:growthPlanId/:date', async (req, res) => {
+    try {
+      const growthPlanId = parseInt(req.params.growthPlanId);
+      const date = new Date(req.params.date);
+      const plans = await storage.getDailyTradePlansForDate(growthPlanId, date);
+      res.json(plans);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch daily trade plans for date' });
+    }
+  });
+
+  // Update daily trade plan with actual result
+  app.patch('/api/daily-trade-plans/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { actualResult } = req.body;
+      
+      const updated = await storage.updateDailyTradePlan(id, {
+        actualResult,
+        isExecuted: true,
+        executedAt: new Date(),
+      });
+      
+      if (!updated) {
+        return res.status(404).json({ message: 'Daily trade plan not found' });
+      }
+
+      // Find the growth plan
+      const growthPlan = Array.from((storage as any).growthPlans.values()).find((gp: any) => gp.id === updated.growthPlanId);
+      
+      if (growthPlan) {
+        const lastTradeDate = growthPlan.lastTradeDate ? new Date(growthPlan.lastTradeDate) : null;
+        const today = new Date();
+        const isNewDay = !lastTradeDate || lastTradeDate.toDateString() !== today.toDateString();
+        
+        const growthUpdates = updateGrowthPlanAfterTrade(growthPlan, actualResult, isNewDay);
+        await storage.updateGrowthPlan(growthPlan.accountTrackerId, growthUpdates);
+        
+        // Generate new daily plans if needed
+        if (isNewDay && !growthUpdates.isCompleted) {
+          const newDailyPlans = generateDailyTradePlans(growthPlan, today);
+          for (const dailyPlan of newDailyPlans) {
+            await storage.createDailyTradePlan(dailyPlan);
+          }
+        }
+      }
+      
+      broadcast({ type: 'dailyTradePlanUpdated', data: updated });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to update daily trade plan' });
+    }
+  });
+
+  // Generate new daily plans for a specific currency pair
+  app.post('/api/daily-trade-plans/generate/:growthPlanId', async (req, res) => {
+    try {
+      const growthPlanId = parseInt(req.params.growthPlanId);
+      const { currencyPair, date } = req.body;
+      
+      const growthPlan = await storage.getGrowthPlan(growthPlanId);
+      if (!growthPlan) {
+        return res.status(404).json({ message: 'Growth plan not found' });
+      }
+      
+      const targetDate = new Date(date);
+      const existingPlans = await storage.getDailyTradePlansForDate(growthPlanId, targetDate);
+      
+      // Generate plans for specific currency pair
+      const newPlans = generateDailyTradePlans(growthPlan, targetDate)
+        .map(plan => ({ ...plan, currencyPair }));
+      
+      const createdPlans = [];
+      for (const plan of newPlans) {
+        const created = await storage.createDailyTradePlan(plan);
+        createdPlans.push(created);
+      }
+      
+      res.json(createdPlans);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to generate daily trade plans' });
     }
   });
 

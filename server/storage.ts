@@ -3,6 +3,8 @@ import {
   accountTrackers, 
   trades, 
   tradingPlans,
+  growthPlans,
+  dailyTradePlans,
   type User, 
   type InsertUser,
   type AccountTracker,
@@ -10,7 +12,11 @@ import {
   type Trade,
   type InsertTrade,
   type TradingPlan,
-  type InsertTradingPlan
+  type InsertTradingPlan,
+  type GrowthPlan,
+  type InsertGrowthPlan,
+  type DailyTradePlan,
+  type InsertDailyTradePlan
 } from "@shared/schema";
 
 export interface IStorage {
@@ -28,12 +34,23 @@ export interface IStorage {
   // Trade operations
   getTrades(userId: number): Promise<Trade[]>;
   getTradesByAccount(accountTrackerId: number): Promise<Trade[]>;
-  createTrade(trade: InsertTrade & { userId: number }): Promise<Trade>;
+  createTrade(trade: InsertTrade & { userId: number; profitLoss: number }): Promise<Trade>;
   
   // Trading plan operations
   getTradingPlan(accountTrackerId: number): Promise<TradingPlan | undefined>;
   createTradingPlan(plan: InsertTradingPlan): Promise<TradingPlan>;
   updateTradingPlan(accountTrackerId: number, updates: Partial<TradingPlan>): Promise<TradingPlan | undefined>;
+  
+  // Growth plan operations
+  getGrowthPlan(accountTrackerId: number): Promise<GrowthPlan | undefined>;
+  createGrowthPlan(plan: InsertGrowthPlan): Promise<GrowthPlan>;
+  updateGrowthPlan(accountTrackerId: number, updates: Partial<GrowthPlan>): Promise<GrowthPlan | undefined>;
+  
+  // Daily trade plan operations
+  getDailyTradePlans(growthPlanId: number): Promise<DailyTradePlan[]>;
+  getDailyTradePlansForDate(growthPlanId: number, date: Date): Promise<DailyTradePlan[]>;
+  createDailyTradePlan(plan: InsertDailyTradePlan): Promise<DailyTradePlan>;
+  updateDailyTradePlan(id: number, updates: Partial<DailyTradePlan>): Promise<DailyTradePlan | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -41,6 +58,8 @@ export class MemStorage implements IStorage {
   private accountTrackers: Map<number, AccountTracker>;
   private trades: Map<number, Trade>;
   private tradingPlans: Map<number, TradingPlan>;
+  private growthPlans: Map<number, GrowthPlan>;
+  private dailyTradePlans: Map<number, DailyTradePlan>;
   private currentId: number;
 
   constructor() {
@@ -48,6 +67,8 @@ export class MemStorage implements IStorage {
     this.accountTrackers = new Map();
     this.trades = new Map();
     this.tradingPlans = new Map();
+    this.growthPlans = new Map();
+    this.dailyTradePlans = new Map();
     this.currentId = 1;
   }
 
@@ -108,7 +129,7 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createTrade(data: InsertTrade & { userId: number }): Promise<Trade> {
+  async createTrade(data: InsertTrade & { userId: number; profitLoss: number }): Promise<Trade> {
     const id = this.currentId++;
     const trade: Trade = {
       ...data,
@@ -144,6 +165,76 @@ export class MemStorage implements IStorage {
     
     const updated = { ...existing, ...updates, lastUpdated: new Date() };
     this.tradingPlans.set(existing.id, updated);
+    return updated;
+  }
+
+  async getGrowthPlan(accountTrackerId: number): Promise<GrowthPlan | undefined> {
+    return Array.from(this.growthPlans.values()).find(
+      plan => plan.accountTrackerId === accountTrackerId
+    );
+  }
+
+  async createGrowthPlan(data: InsertGrowthPlan): Promise<GrowthPlan> {
+    const id = this.currentId++;
+    const plan: GrowthPlan = {
+      ...data,
+      id,
+      currentTrade: 1,
+      dailyLossUsed: 0,
+      totalTradesCompleted: 0,
+      lastTradeDate: null,
+      isCompleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.growthPlans.set(id, plan);
+    return plan;
+  }
+
+  async updateGrowthPlan(accountTrackerId: number, updates: Partial<GrowthPlan>): Promise<GrowthPlan | undefined> {
+    const existing = Array.from(this.growthPlans.values()).find(
+      plan => plan.accountTrackerId === accountTrackerId
+    );
+    if (!existing) return undefined;
+    
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.growthPlans.set(existing.id, updated);
+    return updated;
+  }
+
+  async getDailyTradePlans(growthPlanId: number): Promise<DailyTradePlan[]> {
+    return Array.from(this.dailyTradePlans.values()).filter(
+      plan => plan.growthPlanId === growthPlanId
+    );
+  }
+
+  async getDailyTradePlansForDate(growthPlanId: number, date: Date): Promise<DailyTradePlan[]> {
+    const dateStr = date.toDateString();
+    return Array.from(this.dailyTradePlans.values()).filter(
+      plan => plan.growthPlanId === growthPlanId && 
+               plan.tradeDate && new Date(plan.tradeDate).toDateString() === dateStr
+    );
+  }
+
+  async createDailyTradePlan(data: InsertDailyTradePlan): Promise<DailyTradePlan> {
+    const id = this.currentId++;
+    const plan: DailyTradePlan = {
+      ...data,
+      id,
+      actualResult: null,
+      isExecuted: false,
+      executedAt: null,
+    };
+    this.dailyTradePlans.set(id, plan);
+    return plan;
+  }
+
+  async updateDailyTradePlan(id: number, updates: Partial<DailyTradePlan>): Promise<DailyTradePlan | undefined> {
+    const existing = this.dailyTradePlans.get(id);
+    if (!existing) return undefined;
+    
+    const updated = { ...existing, ...updates };
+    this.dailyTradePlans.set(id, updated);
     return updated;
   }
 }

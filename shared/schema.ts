@@ -50,6 +50,37 @@ export const tradingPlans = pgTable("trading_plans", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+export const growthPlans = pgTable("growth_plans", {
+  id: serial("id").primaryKey(),
+  accountTrackerId: integer("account_tracker_id").notNull(),
+  targetTrades: integer("target_trades").notNull(),
+  currentTrade: integer("current_trade").default(1),
+  dailyRiskLimit: real("daily_risk_limit").notNull(), // 1% of capital
+  dailyLossUsed: real("daily_loss_used").default(0),
+  totalTradesCompleted: integer("total_trades_completed").default(0),
+  remainingDays: integer("remaining_days").notNull(),
+  lastTradeDate: timestamp("last_trade_date"),
+  isCompleted: boolean("is_completed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const dailyTradePlans = pgTable("daily_trade_plans", {
+  id: serial("id").primaryKey(),
+  growthPlanId: integer("growth_plan_id").notNull(),
+  currencyPair: text("currency_pair").notNull(),
+  tradeNumber: integer("trade_number").notNull(), // 1, 2, or 3
+  allocatedRisk: real("allocated_risk").notNull(), // percentage of daily risk
+  lotSize: real("lot_size").notNull(),
+  stopLossPips: real("stop_loss_pips").notNull(),
+  takeProfitPips: real("take_profit_pips").notNull(),
+  expectedProfit: real("expected_profit").notNull(),
+  actualResult: real("actual_result"), // null if not executed
+  isExecuted: boolean("is_executed").default(false),
+  executedAt: timestamp("executed_at"),
+  tradeDate: timestamp("trade_date").notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -75,6 +106,24 @@ export const insertTradingPlanSchema = createInsertSchema(tradingPlans).omit({
   lastUpdated: true,
 });
 
+export const insertGrowthPlanSchema = createInsertSchema(growthPlans).omit({
+  id: true,
+  currentTrade: true,
+  dailyLossUsed: true,
+  totalTradesCompleted: true,
+  lastTradeDate: true,
+  isCompleted: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDailyTradePlanSchema = createInsertSchema(dailyTradePlans).omit({
+  id: true,
+  actualResult: true,
+  isExecuted: true,
+  executedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -87,3 +136,9 @@ export type InsertTrade = z.infer<typeof insertTradeSchema>;
 
 export type TradingPlan = typeof tradingPlans.$inferSelect;
 export type InsertTradingPlan = z.infer<typeof insertTradingPlanSchema>;
+
+export type GrowthPlan = typeof growthPlans.$inferSelect;
+export type InsertGrowthPlan = z.infer<typeof insertGrowthPlanSchema>;
+
+export type DailyTradePlan = typeof dailyTradePlans.$inferSelect;
+export type InsertDailyTradePlan = z.infer<typeof insertDailyTradePlanSchema>;
